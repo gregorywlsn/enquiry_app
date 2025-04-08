@@ -1,0 +1,16 @@
+# Query: .mp3
+# ContextLines: 1
+
+3 results - 2 files
+
+pubspec.yaml:
+  33      assets:
+  34:     - assets/callBackAlert.mp3
+  35  
+
+lib/main.dart:
+  78    void _playAlertSound() async {
+  79:     // Ensure you have added 'assets/callBackAlert.mp3' and updated pubspec.yaml accordingly
+  80      final player = AudioPlayer();
+  81:     await player.play(AssetSource('callBackAlert.mp3'));
+  82    }
