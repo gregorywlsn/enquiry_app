@@ -15,6 +15,8 @@ class Enquiry {
   final String statusType;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final bool isScheduled;
+  
 
   Enquiry({
     this.id,
@@ -30,6 +32,7 @@ class Enquiry {
     required this.statusType,
     this.createdAt,
     this.updatedAt,
+    required this.isScheduled,
   });
 
   /// Create an Enquiry from JSON data
@@ -54,6 +57,8 @@ class Enquiry {
       updatedAt: json['updated_at'] != null && json['updated_at'] != ''
           ? DateTime.parse(json['updated_at'])
           : null,
+
+          isScheduled: json['is_scheduled'] == 1 || json['is_scheduled'] == true,
     );
   }
 
@@ -73,6 +78,7 @@ class Enquiry {
       'status_type': statusType,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
+       'is_scheduled': isScheduled,
     };
   }
 
@@ -92,6 +98,7 @@ class Enquiry {
       statusType: statusType,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      isScheduled: isScheduled,
     );
   }
 }
@@ -111,6 +118,7 @@ class User {
   String statusType;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+ bool isScheduled;
 
   User({
     this.id,
@@ -126,6 +134,7 @@ class User {
     required this.statusType,
     this.createdAt,
     this.updatedAt,
+    required this.isScheduled,
   });
 }
 

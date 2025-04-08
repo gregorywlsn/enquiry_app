@@ -198,17 +198,21 @@ class _UserEntryPageState extends State<UserEntryPage> {
                       ),
                     ),
                     onTap: () async {
+                      Navigator.pop(context);
+                      
+                      // Update status
                       setState(() {
                         _status = status.displyName;
                         _statusColorCode = status.statusColorCode;
                         _statusType = status.type;
                       });
                       
-                      Navigator.pop(context);
-                      
+                      // Handle callback time based on status type
                       if (status.type == 'timer') {
+                        // Always prompt for callback time for timer status
                         await _selectCallbackTime(context);
                       } else {
+                        // Clear callback time for non-timer status
                         setState(() {
                           _callbackTime = null;
                         });
@@ -594,6 +598,7 @@ class _UserEntryPageState extends State<UserEntryPage> {
                         status: _status,
                         statusColorCode: _statusColorCode,
                         statusType: _statusType,
+                        isScheduled: _statusType == 'timer' && _callbackTime != null,
                       );
                       
                       // Return user to previous screen

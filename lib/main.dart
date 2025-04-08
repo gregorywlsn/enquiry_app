@@ -402,7 +402,7 @@ class _UserListPageState extends State<UserListPage> with TickerProviderStateMix
               ),
               
             // Callback time if scheduled
-            if (hasCallback)
+            if (hasCallback && user.isScheduled)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: Row(
@@ -666,10 +666,12 @@ class _UserListPageState extends State<UserListPage> with TickerProviderStateMix
     
     try {
       // Prepare status data for API
+      final isScheduled = status.type == 'timer' && user.callbackTime != null;
       final statusData = {
         'status': status.displyName,
         'status_color_code': status.statusColorCode,
         'status_type': status.type,
+        'is_scheduled': isScheduled ? 1 : 0,
       };
       
       // If callback time is set and status type is timer, include it
@@ -689,6 +691,7 @@ class _UserListPageState extends State<UserListPage> with TickerProviderStateMix
           user.status = status.displyName;
           user.statusColorCode = status.statusColorCode;
           user.statusType = status.type;
+          user.isScheduled = status.type == 'timer' && user.callbackTime != null;
         });
         
         // Show success message
