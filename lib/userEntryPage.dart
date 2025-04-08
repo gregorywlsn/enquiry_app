@@ -25,7 +25,8 @@ class _UserEntryPageState extends State<UserEntryPage> {
   late TextEditingController _paidAmountController;
   
   DateTime? _callbackTime;
-  String _status = "Pending";
+  String _statusId = "5"; // Default to "Call Not Attended" (id: 5)
+  String _statusDisplayName = "Call Not Attended";
   String _statusColorCode = "#808080";
   String _statusType = "default";
 
@@ -46,9 +47,19 @@ class _UserEntryPageState extends State<UserEntryPage> {
     // Set other fields if editing
     if (widget.user != null) {
       _callbackTime = widget.user!.callbackTime;
-      _status = widget.user!.status;
-      _statusColorCode = widget.user!.statusColorCode;
-      _statusType = widget.user!.statusType;
+      _statusId = widget.user!.statusId.toString();
+      
+      // Find the status display name from the ID
+      final matchingStatus = widget.statusOptions.firstWhere(
+        (status) => status.id == _statusId,
+        orElse: () => SelectionStatus(
+          id: "5",
+          displyName: "Call Not Attended",
+          statusColorCode: "#808080",
+          type: "default",
+        ),
+      );
+      _statusDisplayName = matchingStatus.displyName;
     }
   }
 
@@ -202,7 +213,8 @@ class _UserEntryPageState extends State<UserEntryPage> {
                       
                       // Update status
                       setState(() {
-                        _status = status.displyName;
+                        _statusId = status.id;
+                        _statusDisplayName = status.displyName;
                         _statusColorCode = status.statusColorCode;
                         _statusType = status.type;
                       });
@@ -495,7 +507,7 @@ class _UserEntryPageState extends State<UserEntryPage> {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        _status,
+                        _statusDisplayName,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -595,9 +607,7 @@ class _UserEntryPageState extends State<UserEntryPage> {
                         packageName: _packageNameController.text,
                         totalAmount: _totalAmountController.text,
                         paidAmount: _paidAmountController.text,
-                        status: _status,
-                        statusColorCode: _statusColorCode,
-                        statusType: _statusType,
+                        statusId: _statusId,
                         isScheduled: _statusType == 'timer' && _callbackTime != null,
                       );
                       

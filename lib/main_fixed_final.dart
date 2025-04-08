@@ -121,26 +121,31 @@ class _UserListPageState extends State<UserListPage> with TickerProviderStateMix
       displyName: "Callback",
       statusColorCode: "#FFA500",
       type: "timer",
+      id: "1",
     ),
     SelectionStatus(
       displyName: "Not Interested",
       statusColorCode: "#FF0000",
       type: "default",
+      id: "2",
     ),
     SelectionStatus(
       displyName: "Using an App",
       statusColorCode: "#00FF00",
       type: "default",
+      id: "3",
     ),
     SelectionStatus(
       displyName: "Interested",
       statusColorCode: "#008000",
       type: "default",
+      id: "4",
     ),
     SelectionStatus(
       displyName: "Call Not Attended ",
       statusColorCode: "#808080",
       type: "default",
+      id: "5",
     ),
   ];
   

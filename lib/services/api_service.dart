@@ -86,10 +86,11 @@ class ApiService {
   }
   
   /// Update enquiry status
-  Future<void> updateEnquiryStatus(String id, Map<String, dynamic> statusData) async {
+  Future<void> updateEnquiryStatus(String id, String statusId, Map<String, dynamic> statusData) async {
     try {
       // Add ID to the data
       statusData['id'] = id;
+      statusData['statusId'] = statusId;
       
       final response = await _client.post(
         Uri.parse('$baseUrl/enquiry/update_status.php'),

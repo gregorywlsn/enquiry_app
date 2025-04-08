@@ -1,3 +1,6 @@
+// This is a modified version of main.dart with clickable callback time UI
+// This file is a complete implementation that matches the design in the image
+
 import 'dart:async';
 import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart';
@@ -537,21 +540,6 @@ class _UserListPageState extends State<UserListPage> with TickerProviderStateMix
       // Convert Enquiry objects to User objects
       final userList = enquiries.map((enquiry) => enquiry.toUser()).toList();
       
-      // Update statusType and statusColorCode for each user
-      for (var user in userList) {
-        final matchingStatus = statusOptions.firstWhere(
-          (status) => status.id == user.statusId,
-          orElse: () => SelectionStatus(
-            id: "0",
-            displyName: "Unknown",
-            statusColorCode: "#808080",
-            type: "default",
-          ),
-        );
-        user.statusType = matchingStatus.type;
-        user.statusColorCode = matchingStatus.statusColorCode;
-      }
-      
       setState(() {
         users = userList;
         _filteredUsers = userList; // Initialize filtered list with all users
@@ -575,7 +563,7 @@ class _UserListPageState extends State<UserListPage> with TickerProviderStateMix
             packageName: "Basic Package",
             totalAmount: "1000",
             paidAmount: "900",
-            statusId: "1",
+            statusId: "1", // Callback status ID
             isScheduled: true,
           ),
           User(
@@ -586,7 +574,7 @@ class _UserListPageState extends State<UserListPage> with TickerProviderStateMix
             packageName: "Premium Package",
             totalAmount: "2500",
             paidAmount: "1500",
-            statusId: "1",
+            statusId: "1", // Callback status ID
             isScheduled: true,
           ),
         ];
@@ -925,8 +913,6 @@ class _UserListPageState extends State<UserListPage> with TickerProviderStateMix
                           // Update locally first for immediate UI feedback
                           setState(() {
                             users[index].statusId = status.id;
-                            users[index].statusType = status.type;
-                            users[index].statusColorCode = status.statusColorCode;
                             users[index].callbackTime = selectedDateTime;
                           });
                           
@@ -956,8 +942,6 @@ class _UserListPageState extends State<UserListPage> with TickerProviderStateMix
                         // Update locally first for immediate UI feedback
                         setState(() {
                           users[index].statusId = status.id;
-                          users[index].statusType = status.type;
-                          users[index].statusColorCode = status.statusColorCode;
                           users[index].callbackTime = null;
                         });
                         
@@ -1098,14 +1082,19 @@ class _UserListPageState extends State<UserListPage> with TickerProviderStateMix
         enquiryId = index;
       }
       
-      // Create status data from User object
+      // Create status data
+      final statusId = user.statusId;
       final statusData = {
         'status': user.statusId,
         'callback_time': user.callbackTime?.toIso8601String(),
       };
       
       // Update enquiry status through API
-      await _apiService.updateEnquiryStatus(enquiryId.toString(), user.statusId.toString(), statusData);
+      await _apiService.updateEnquiryStatus(
+        enquiryId.toString(), 
+        statusId.toString(),
+        statusData
+      );
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1342,29 +1331,14 @@ class _UserListPageState extends State<UserListPage> with TickerProviderStateMix
     }
   }
   
-  // Build card for each enquiry based on the provided design in the image
+  // Build card for each enquiry based on the provided design
   Widget _buildEnquiryCard(BuildContext context, int index) {
     final user = _filteredUsers[index];
-    
-    // Determine status display and color based on statusId
-    // Find the status option with the matching ID
-    SelectionStatus matchingStatus = statusOptions.firstWhere(
-      (status) => status.id == user.statusId,
-      orElse: () => SelectionStatus(
-        id: "0",
-        displyName: "Unknown",
-        statusColorCode: "#808080",
-        type: "default",
-      ),
-    );
-    
-    String statusDisplay = matchingStatus.displyName;
-    Color statusColor = _hexToColor(matchingStatus.statusColorCode);
     
     // Check if callback is overdue
     bool isCallbackOverdue = false;
     Duration? overdueTime;
-    if (matchingStatus.type == 'timer' && user.callbackTime != null) {
+    if (user.statusType == 'timer' && user.callbackTime != null) {
       DateTime now = DateTime.now();
       if (now.isAfter(user.callbackTime!)) {
         isCallbackOverdue = true;
@@ -1372,19 +1346,40 @@ class _UserListPageState extends State<UserListPage> with TickerProviderStateMix
       }
     }
     
-    // Format callback date
-    String callbackDateStr = user.callbackTime != null 
-        ? "Apr ${user.callbackTime!.day}, ${user.callbackTime!.year}"
-        : "";
+    // Calculate payment percentage
+    String paymentPercentage = "0% Paid";
+    if (user.totalAmount.isNotEmpty && user.paidAmount.isNotEmpty) {
+      try {
+        double total = double.parse(user.totalAmount);
+        double paid = double.parse(user.paidAmount);
+        if (total > 0) {
+          int percentage = ((paid / total) * 100).round();
+          paymentPercentage = "$percentage% Paid";
+        }
+      } catch (e) {
+        // Fallback if parsing fails
+        paymentPercentage = "0% Paid";
+      }
+    }
     
-    // Determine if this is a callback scheduled card
-    bool hasScheduledCallback = user.statusType == 'timer' && user.callbackTime != null && user.isScheduled == true;
+    // Format created date
+    String formattedDate = user.createdAt != null 
+        ? DateFormat('MMM d, yyyy').format(user.createdAt!)
+        : "No date";
+    
+    // Determine status display and color
+    String statusDisplay = statusOptions.firstWhere(
+      (status) => status.id == user.statusId,
+      orElse: () => SelectionStatus(id: "", displyName: "Unknown", statusColorCode: "#808080", type: "default"),
+    ).displyName;
+    Color statusColor = _hexToColor(user.statusColorCode);
+    Color accentColor = isCallbackOverdue ? Colors.red : const Color(0xFFA3FF40);
     
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF2C2C2E),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.2),
@@ -1393,316 +1388,383 @@ class _UserListPageState extends State<UserListPage> with TickerProviderStateMix
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header row with name and status
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Name
-                Expanded(
-                  child: Text(
-                    user.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+            // Left colored bar
+            Container(
+              width: 4,
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  bottomLeft: Radius.circular(12),
                 ),
-                
-                // Status badge - make it tappable
-                GestureDetector(
-                  onTap: () => _updateStatus(users.indexOf(user)), // Show status selection window
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+              ),
+            ),
+            
+            // Main content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header row with name and status
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          statusDisplay,
-                          style: TextStyle(
-                            color: _isColorBright(statusColor) ? Colors.black : Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                        // Name and phone
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Name
+                              Text(
+                                user.name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              
+                              const SizedBox(height: 8),
+                              
+                              // Phone number
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.phone,
+                                    color: Colors.grey,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    user.mobile.length >= 10 
+                                        ? "+1 (${user.mobile.substring(0, 3)}) ${user.mobile.substring(3, 6)}-${user.mobile.substring(6)}"
+                                        : user.mobile,
+                                    style: const TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.arrow_drop_down,
-                          color: Colors.white,
-                          size: 16,
+                        
+                        // Status badge and callback time
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            // Status badge
+                            GestureDetector(
+                              onTap: () => _updateStatus(users.indexOf(user)), // Use the index from the full list
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: statusColor,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  statusDisplay,
+                                  style: TextStyle(
+                                    color: _isColorBright(statusColor) ? Colors.black : Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            
+                            // Callback date and time (if applicable)
+                            if (user.statusType == 'timer' && user.callbackTime != null) ...[
+                              const SizedBox(height: 4),
+                              GestureDetector(
+                                onTap: () async {
+                                  // Show date picker to edit callback time
+                                  DateTime? selectedDateTime = await _selectCallbackTime(context);
+                                  if (selectedDateTime != null) {
+                                    setState(() {
+                                      user.callbackTime = selectedDateTime;
+                                      user.isScheduled = true;
+                                    });
+                                    // Update via API
+                                    _updateEnquiryStatus(users.indexOf(user));
+                                  }
+                                },
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      DateFormat('dd MMM yyyy hh:mm a').format(user.callbackTime!),
+                                      style: TextStyle(
+                                        color: isCallbackOverdue ? Colors.red : Colors.orange,
+                                        fontSize: 11,
+                                        fontStyle: FontStyle.normal,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.edit,
+                                      color: isCallbackOverdue ? Colors.red : Colors.orange,
+                                      size: 10,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
-                  ),
-                ),
-              ],
-            ),
-            
-            // Phone number
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(
-                  Icons.phone_android,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  user.mobile.length >= 10 
-                      ? "(${user.mobile.substring(0, 3)}) ${user.mobile.substring(3, 6)}-${user.mobile.substring(6)}"
-                      : user.mobile,
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Package and Total Amount
-            Row(
-              children: [
-                // Package
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Package",
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 14,
+                    
+                    
+                    const SizedBox(height: 16),
+                    const Divider(height: 1, color: Color(0xFF3A3A3C)),
+                    const SizedBox(height: 16),
+                    
+                    // Info grid (2x2)
+                    Row(
+                      children: [
+                        // Left column
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Created On
+                              const Text(
+                                "Created On",
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                formattedDate,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              
+                              const SizedBox(height: 16),
+                              
+                              // Total Amount
+                              const Text(
+                                "Total Amount",
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "\$${user.totalAmount}",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        user.packageName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                        
+                        // Right column
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Advance Paid
+                              const Text(
+                                "Advance Paid",
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "\$${user.paidAmount}",
+                                style: TextStyle(
+                                  color: accentColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              
+                              const SizedBox(height: 16),
+                              
+                              // Payment Status
+                              const Text(
+                                "Payment Status",
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                paymentPercentage,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                // Total Amount
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Total Amount",
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "\$${user.totalAmount}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Paid Amount and Date
-            Row(
-              children: [
-                // Paid Amount
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Paid Amount",
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "\$${user.paidAmount}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                // Date
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Date",
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        callbackDateStr,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            
-            // Remarks
-            if (user.remark.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  user.remark,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ],
-            
-            const SizedBox(height: 16),
-            
-            // Callback scheduled info - make it tappable
-            if (hasScheduledCallback) ...[
-              GestureDetector(
-                onTap: () async {
-                  // Show date picker to edit callback time
-                  DateTime? selectedDateTime = await _selectCallbackTime(context);
-                  if (selectedDateTime != null) {
-                    setState(() {
-                      user.callbackTime = selectedDateTime;
-                      user.isScheduled = true;
-                    });
-                    // Update via API
-                    _updateEnquiryStatus(users.indexOf(user));
-                  }
-                },
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.access_time,
-                      color: Colors.orange,
-                      size: 16,
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      "Callback scheduled for ${DateFormat('MMM d, h:mm a').format(user.callbackTime!)}",
-                      style: const TextStyle(
-                        color: Colors.orange,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                    
+                    
+                    // Remarks
+                    if (user.remark.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      const Text(
+                        "Remarks",
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.edit,
-                      color: Colors.orange,
-                      size: 12,
+                      const SizedBox(height: 4),
+                      Text(
+                        user.remark,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    
+                    const SizedBox(height: 16),
+                    const Divider(height: 1, color: Color(0xFF3A3A3C)),
+                    const SizedBox(height: 16),
+                    
+                        // Action buttons and callback time
+                    Column(
+                      children: [
+                        // Action buttons row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Call button
+                            Expanded(
+                              child: Center(
+                                child: InkWell(
+                                  onTap: () {
+                                    launchUrl(Uri.parse("tel:${user.mobile}"));
+                                  },
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.call,
+                                        color: Colors.grey,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        "Call",
+                                        style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            
+                            // Vertical divider
+                            Container(
+                              height: 24,
+                              width: 1,
+                              color: const Color(0xFF3A3A3C),
+                            ),
+                            
+                            // Edit button
+                            Expanded(
+                              child: Center(
+                                child: InkWell(
+                                  onTap: () => _editUser(users.indexOf(user)), // Use the index from the full list
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.edit,
+                                        color: Colors.grey,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        "Edit",
+                                        style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        // Callback time (if applicable)
+                        if (user.statusType == 'timer' && user.callbackTime != null) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isCallbackOverdue 
+                                  ? Colors.red.withOpacity(0.2)
+                                  : Colors.orange.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isCallbackOverdue ? Icons.warning : Icons.access_time,
+                                  color: isCallbackOverdue ? Colors.red : Colors.orange,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isCallbackOverdue
+                                      ? "Overdue by ${_formatDuration(overdueTime!)}"
+                                      : "${_formatTimeToCallback(user.callbackTime!)} until callback",
+                                  style: TextStyle(
+                                    color: isCallbackOverdue ? Colors.red : Colors.orange,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-            ],
-            
-            // Action buttons (removed Schedule Callback button)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Mark as Converted button
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.check, size: 16),
-                    label: const Text("Mark as Converted"),
-                    onPressed: () {
-                      // Find the "Converted" status option
-                      final convertedStatus = statusOptions.firstWhere(
-                        (status) => status.displyName == "Converted",
-                        orElse: () => SelectionStatus(
-                          id: "4", // Using "Interested" as fallback
-                          displyName: "Converted",
-                          statusColorCode: "#008000",
-                          type: "default",
-                        ),
-                      );
-                      
-                      // Update status to Converted
-                      setState(() {
-                        users[users.indexOf(user)].statusId = convertedStatus.id;
-                        users[users.indexOf(user)].statusType = convertedStatus.type;
-                        users[users.indexOf(user)].statusColorCode = convertedStatus.statusColorCode;
-                      });
-                      _updateEnquiryStatus(users.indexOf(user));
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey,
-                      side: const BorderSide(color: Colors.grey),
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(width: 8),
-                
-                // Call button
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.purple,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.call),
-                    onPressed: () {
-                      launchUrl(Uri.parse("tel:${user.mobile}"));
-                    },
-                    color: Colors.white,
-                  ),
-                ),
-              ],
             ),
           ],
         ),

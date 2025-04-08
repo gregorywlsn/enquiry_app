@@ -10,9 +10,7 @@ class Enquiry {
   final String packageName;
   final String totalAmount;
   final String paidAmount;
-  final String status;
-  final String statusColorCode;
-  final String statusType;
+  final String? statusId;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool isScheduled;
@@ -27,12 +25,10 @@ class Enquiry {
     required this.packageName,
     required this.totalAmount,
     required this.paidAmount,
-    required this.status,
-    required this.statusColorCode,
-    required this.statusType,
     this.createdAt,
     this.updatedAt,
     required this.isScheduled,
+    this.statusId,
   });
 
   /// Create an Enquiry from JSON data
@@ -48,9 +44,7 @@ class Enquiry {
       packageName: json['package_name'] ?? '',
       totalAmount: json['total_amount']?.toString() ?? '0',
       paidAmount: json['paid_amount']?.toString() ?? '0',
-      status: json['status'] ?? 'Pending',
-      statusColorCode: json['status_color_code'] ?? '#808080',
-      statusType: json['status_type'] ?? 'default',
+      statusId: json['statusId']?.toString(),
       createdAt: json['created_at'] != null && json['created_at'] != ''
           ? DateTime.parse(json['created_at'])
           : null,
@@ -73,9 +67,7 @@ class Enquiry {
       'package_name': packageName,
       'total_amount': totalAmount,
       'paid_amount': paidAmount,
-      'status': status,
-      'status_color_code': statusColorCode,
-      'status_type': statusType,
+      'status_id': statusId,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
        'is_scheduled': isScheduled,
@@ -84,6 +76,51 @@ class Enquiry {
 
   /// Convert Enquiry to User model
   User toUser() {
+    // Find the matching status option
+    final List<SelectionStatus> statusOptions = [
+      SelectionStatus(
+        displyName: "Callback",
+        statusColorCode: "#FFA500",
+        type: "timer",
+        id: "1",
+      ),
+      SelectionStatus(
+        displyName: "Not Interested",
+        statusColorCode: "#FF0000",
+        type: "default",
+        id: "2",
+      ),
+      SelectionStatus(
+        displyName: "Using an App",
+        statusColorCode: "#00FF00",
+        type: "default",
+        id: "3",
+      ),
+      SelectionStatus(
+        displyName: "Interested",
+        statusColorCode: "#008000",
+        type: "default",
+        id: "4",
+      ),
+      SelectionStatus(
+        displyName: "Call Not Attended ",
+        statusColorCode: "#808080",
+        type: "default",
+        id: "5",
+      ),
+    ];
+    
+    // Find the status option with the matching ID
+    SelectionStatus matchingStatus = statusOptions.firstWhere(
+      (status) => status.id == statusId,
+      orElse: () => SelectionStatus(
+        id: "0",
+        displyName: "Unknown",
+        statusColorCode: "#808080",
+        type: "default",
+      ),
+    );
+    
     return User(
       id: id,
       name: name,
@@ -93,9 +130,9 @@ class Enquiry {
       packageName: packageName,
       totalAmount: totalAmount,
       paidAmount: paidAmount,
-      status: status,
-      statusColorCode: statusColorCode,
-      statusType: statusType,
+      statusId: statusId,
+      statusType: matchingStatus.type,
+      statusColorCode: matchingStatus.statusColorCode,
       createdAt: createdAt,
       updatedAt: updatedAt,
       isScheduled: isScheduled,
@@ -113,12 +150,12 @@ class User {
   final String packageName;
   final String totalAmount;
   final String paidAmount;
-  String status;
-  String statusColorCode;
+  String? statusId;
   String statusType;
+  String statusColorCode;
   final DateTime? createdAt;
   final DateTime? updatedAt;
- bool isScheduled;
+  bool isScheduled;
 
   User({
     this.id,
@@ -129,9 +166,9 @@ class User {
     required this.packageName,
     required this.totalAmount,
     required this.paidAmount,
-    required this.status,
-    required this.statusColorCode,
-    required this.statusType,
+    this.statusId,
+    this.statusType = 'default',
+    this.statusColorCode = '#808080',
     this.createdAt,
     this.updatedAt,
     required this.isScheduled,
@@ -140,11 +177,13 @@ class User {
 
 /// Model class for Status Selection
 class SelectionStatus {
+  final String id;
   final String displyName;
   final String statusColorCode;
   final String type;
 
   SelectionStatus({
+    required this.id,
     required this.displyName,
     required this.statusColorCode,
     required this.type,
